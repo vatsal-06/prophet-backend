@@ -4,3 +4,4 @@ pandas
 prophet
 pystan
 gunicorn
+plotly
