@@ -1,7 +1,4 @@
 flask
-flask-cors
 pandas
 prophet
-pystan
 gunicorn
-plotly
