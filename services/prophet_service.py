@@ -34,9 +34,15 @@ class ProphetService:
         future = model.make_future_dataframe(periods=periods)
         forecast = model.predict(future)
 
+        # 🔴 FORCE ISO STRING FORMAT
+        history_out = history_df.copy()
+        history_out["ds"] = history_out["ds"].dt.strftime("%Y-%m-%d")
+
+        forecast_out = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].tail(periods)
+        forecast_out["ds"] = forecast_out["ds"].dt.strftime("%Y-%m-%d")
+
         return {
-            "history": history_df.to_dict(orient="records"),
-            "forecast": forecast[
-                ["ds", "yhat", "yhat_lower", "yhat_upper"]
-            ].tail(periods).to_dict(orient="records")
+            "history": history_out.to_dict(orient="records"),
+            "forecast": forecast_out.to_dict(orient="records"),
         }
+
