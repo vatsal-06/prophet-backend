@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from services.prophet_service import ProphetService
+from services.stock_data_service import StockDataService
 import os
 
 app = Flask(__name__)
 CORS(app)
 
-service = ProphetService()
+prophet_service = ProphetService()
 
 @app.route("/", methods=["GET"])
 def health():
@@ -17,14 +18,25 @@ def train():
     data = request.get_json()
 
     symbol = data.get("symbol")
-    history = data.get("history")
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
 
-    if not symbol or not history:
-        return jsonify({"error": "symbol and history required"}), 400
+    if not symbol or not start_date or not end_date:
+        return jsonify({"error": "symbol, start_date, end_date required"}), 400
 
     try:
-        service.train(symbol.upper(), history)
-        return jsonify({"message": f"Model trained for {symbol.upper()}"})
+        history = StockDataService.fetch_history(
+            symbol=symbol.upper(),
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        prophet_service.train(symbol.upper(), history)
+
+        return jsonify({
+            "message": f"Model trained for {symbol.upper()}",
+            "records": len(history)
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -37,7 +49,7 @@ def predict():
         return jsonify({"error": "symbol required"}), 400
 
     try:
-        result = service.forecast(symbol.upper(), periods)
+        result = prophet_service.predict(symbol.upper(), periods)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

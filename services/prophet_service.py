@@ -3,8 +3,8 @@ import pandas as pd
 
 class ProphetService:
     def __init__(self):
-        self.models = {}        # symbol -> model
-        self.history = {}       # symbol -> dataframe
+        self.models = {}
+        self.history = {}
 
     def train(self, symbol, history):
         df = pd.DataFrame(history)
@@ -24,7 +24,7 @@ class ProphetService:
         self.models[symbol] = model
         self.history[symbol] = df
 
-    def forecast(self, symbol, periods):
+    def predict(self, symbol, periods):
         if symbol not in self.models:
             raise ValueError("Model not trained for this symbol")
 
@@ -36,7 +36,7 @@ class ProphetService:
 
         return {
             "history": history_df.to_dict(orient="records"),
-            "forecast": forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
-                        .tail(periods)
-                        .to_dict(orient="records")
+            "forecast": forecast[
+                ["ds", "yhat", "yhat_lower", "yhat_upper"]
+            ].tail(periods).to_dict(orient="records")
         }
