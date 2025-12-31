@@ -3,3 +3,4 @@ pandas
 prophet
 gunicorn
 flask-cors
+yfinance

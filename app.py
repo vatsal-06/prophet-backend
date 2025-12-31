@@ -6,77 +6,42 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-prophet_service = ProphetService()
+service = ProphetService()
 
-# -----------------------------
-# Health Check
-# -----------------------------
 @app.route("/", methods=["GET"])
-def home():
-    return jsonify({"status": "Prophet Forecast API running"})
+def health():
+    return jsonify({"status": "Stock Prophet API running"})
 
-
-# -----------------------------
-# Train Model
-# -----------------------------
 @app.route("/train", methods=["POST"])
 def train():
     data = request.get_json()
 
-    if not data or "history" not in data:
-        return jsonify({"error": "Missing 'history'"}), 400
+    symbol = data.get("symbol")
+    history = data.get("history")
+
+    if not symbol or not history:
+        return jsonify({"error": "symbol and history required"}), 400
 
     try:
-        prophet_service.train(data["history"])
-        return jsonify({
-            "message": "Model trained successfully",
-            "records_used": len(data["history"])
-        })
+        service.train(symbol.upper(), history)
+        return jsonify({"message": f"Model trained for {symbol.upper()}"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/predict", methods=["GET"])
+def predict():
+    symbol = request.args.get("symbol")
+    periods = int(request.args.get("periods", 30))
 
-# -----------------------------
-# Forecast
-# -----------------------------
-@app.route("/forecast", methods=["GET"])
-def forecast():
+    if not symbol:
+        return jsonify({"error": "symbol required"}), 400
+
     try:
-        periods = int(request.args.get("periods", 30))
-
-        forecast_df = prophet_service.forecast(periods)
-
-        response = {
-            "forecast": forecast_df.tail(periods).to_dict(orient="records")
-        }
-
-        return jsonify(response)
-
+        result = service.forecast(symbol.upper(), periods)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-# -----------------------------
-# Full Graph Data (Flutter)
-# -----------------------------
-@app.route("/graph-data", methods=["GET"])
-def graph_data():
-    try:
-        periods = int(request.args.get("periods", 30))
-
-        forecast_df = prophet_service.forecast(periods)
-
-        response = {
-            "history": prophet_service.history_df.to_dict(orient="records"),
-            "forecast": forecast_df.tail(periods).to_dict(orient="records")
-        }
-
-        return jsonify(response)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port)
