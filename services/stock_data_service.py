@@ -6,7 +6,7 @@ class StockDataService:
     def fetch_history(symbol, start_date, end_date):
         """
         Fetch real stock data from Yahoo Finance
-        Returns Prophet-ready JSON: ds, y
+        Returns Prophet-ready JSON (timezone-naive)
         """
 
         ticker = yf.Ticker(symbol)
@@ -22,13 +22,15 @@ class StockDataService:
 
         df = df.reset_index()
 
-        # Prophet expects ds (date) and y (value)
+        # Rename columns for Prophet
         df = df.rename(columns={
             "Date": "ds",
             "Close": "y"
         })
 
-        df["ds"] = pd.to_datetime(df["ds"])
+        # 🔴 CRITICAL FIX: REMOVE TIMEZONE
+        df["ds"] = pd.to_datetime(df["ds"]).dt.tz_localize(None)
+
         df["y"] = df["y"].astype(float)
 
         return df[["ds", "y"]].to_dict(orient="records")
