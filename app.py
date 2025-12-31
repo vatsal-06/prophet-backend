@@ -1,45 +1,80 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from prophet import Prophet
-import pandas as pd
+from services.prophet_service import ProphetService
 
 app = Flask(__name__)
-CORS(app)  # Optional but recommended if your frontend (e.g., Flutter) is separate
+CORS(app)
 
-@app.route('/')
+prophet_service = ProphetService()
+
+# -----------------------------
+# Health Check
+# -----------------------------
+@app.route("/", methods=["GET"])
 def home():
-    return "✅ Prophet Forecast API is running!"
+    return jsonify({"status": "Prophet Forecast API running"})
 
-@app.route('/forecast', methods=['GET', 'POST'])
-def forecast():
-    if request.method == 'GET':
-        return "Send a POST request with JSON time series data."
+
+# -----------------------------
+# Train Model
+# -----------------------------
+@app.route("/train", methods=["POST"])
+def train():
+    data = request.get_json()
+
+    if not data or "history" not in data:
+        return jsonify({"error": "Missing 'history'"}), 400
 
     try:
-        data = request.get_json()
-        history = data.get("history")
-        periods = data.get("periods", 30)
+        prophet_service.train(data["history"])
+        return jsonify({
+            "message": "Model trained successfully",
+            "records_used": len(data["history"])
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        if not history:
-            return jsonify({"error": "Missing 'history' data"}), 400
 
-        df = pd.DataFrame(history)
+# -----------------------------
+# Forecast
+# -----------------------------
+@app.route("/forecast", methods=["GET"])
+def forecast():
+    try:
+        periods = int(request.args.get("periods", 30))
 
-        # Ensure required columns are present
-        if 'ds' not in df.columns or 'y' not in df.columns:
-            return jsonify({"error": "Data must contain 'ds' and 'y' columns"}), 400
+        forecast_df = prophet_service.forecast(periods)
 
-        model = Prophet()
-        model.fit(df)
+        response = {
+            "forecast": forecast_df.tail(periods).to_dict(orient="records")
+        }
 
-        future = model.make_future_dataframe(periods=periods)
-        forecast = model.predict(future)
-
-        result = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(periods).to_dict(orient='records')
-        return jsonify(result)
+        return jsonify(response)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
+
+# -----------------------------
+# Full Graph Data (Flutter)
+# -----------------------------
+@app.route("/graph-data", methods=["GET"])
+def graph_data():
+    try:
+        periods = int(request.args.get("periods", 30))
+
+        forecast_df = prophet_service.forecast(periods)
+
+        response = {
+            "history": prophet_service.history_df.to_dict(orient="records"),
+            "forecast": forecast_df.tail(periods).to_dict(orient="records")
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
     app.run(debug=True)
